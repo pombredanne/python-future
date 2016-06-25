@@ -15,9 +15,9 @@ As of version 0.14, the ``future`` package comes with top-level packages for
 Python 2.x that provide access to the reorganized standard library modules
 under their Python 3.x names.
 
-Direct imports are the preferred mechanism for accesing the renamed standard library
-modules in Python 2/3 compatible code. For example, the following clean Python
-3 code runs unchanged on Python 2 after installing ``future``::
+Direct imports are the preferred mechanism for accesing the renamed standard
+library modules in Python 2/3 compatible code. For example, the following clean
+Python 3 code runs unchanged on Python 2 after installing ``future``::
 
     >>> # Alias for future.builtins on Py2:
     >>> from builtins import str, open, range, dict
@@ -28,8 +28,8 @@ modules in Python 2/3 compatible code. For example, the following clean Python
     >>> import tkinter.dialog
     >>> etc.
 
-Notice that this code actually runs on Python 3 without the presence of the ``future``
-package.
+Notice that this code actually runs on Python 3 without the presence of the
+``future`` package.
 
 Of the 44 modules that were refactored with PEP 3108 (standard library
 reorganization), 30 are supported with direct imports in the above manner. The
@@ -68,6 +68,7 @@ complete list is here::
     from tkinter import scrolledtext
     from tkinter import simpledialog
     from tkinter import tix
+    from tkinter import ttk
 
     import winreg                    # Windows only
 
@@ -85,34 +86,66 @@ Aliased imports
 ~~~~~~~~~~~~~~~
 
 The following 14 modules were refactored or extended from Python 2.6/2.7 to 3.x
-but were neither renamed nor were the new APIs backported. The ``future``
-package makes the Python 3.x APIs available on Python 2.x as follows::
+but were neither renamed in Py3.x nor were the new APIs backported to Py2.x.
+This precludes compatibility interfaces that work out-of-the-box. Instead, the
+``future`` package makes the Python 3.x APIs available on Python 2.x as
+follows::
 
     from future.standard_library import install_aliases
     install_aliases()
 
-    from collections import Counter, OrderedDict   # backported to Py2.6
     from collections import UserDict, UserList, UserString
+
+    import urllib.parse
+    import urllib.request
+    import urllib.response
+    import urllib.robotparser
+    import urllib.error
 
     import dbm
     import dbm.dumb
-    import dbm.gnu                         # requires Python dbm support
-    import dbm.ndbm                        # requires Python dbm support
+    import dbm.gnu                # requires Python dbm support
+    import dbm.ndbm               # requires Python dbm support
 
     from itertools import filterfalse, zip_longest
 
-    from subprocess import check_output    # backported to Py2.6
     from subprocess import getoutput, getstatusoutput
 
     from sys import intern
 
     import test.support
 
-    import urllib.error
-    import urllib.parse
-    import urllib.request
-    import urllib.response
-    import urllib.robotparser
+
+The newly exposed ``urllib`` submodules are backports of those from Py3.x.
+This means, for example, that ``urllib.parse.unquote()`` now exists and takes
+an optional ``encoding`` argument on Py2.x as it does on Py3.x.
+
+**Limitation:** Note that the ``http``-based backports do not currently support
+HTTPS (as of 2015-09-11) because the SSL support changed considerably in Python
+3.x. If you need HTTPS support, please use this idiom for now::
+
+    from future.moves.urllib.request import urlopen
+
+Backports also exist of the following features from Python 3.4:
+
+- ``math.ceil`` returns an int on Py3
+- ``collections.OrderedDict``  (for Python 2.6)
+- ``collections.Counter``      (for Python 2.6)
+- ``collections.ChainMap``     (for all versions prior to Python 3.3)
+- ``itertools.count``          (for Python 2.6, with step parameter)
+- ``subprocess.check_output``  (for Python 2.6)
+- ``reprlib.recursive_repr``   (for Python 2.6 and 2.7)
+
+These can then be imported on Python 2.6+ as follows::
+
+    from future.standard_library import install_aliases
+    install_aliases()
+
+    from math import ceil      # now returns an int
+    from collections import Counter, OrderedDict, ChainMap
+    from itertools import count
+    from subprocess import check_output
+    from reprlib import recursive_repr
 
 
 External standard-library backports

@@ -41,7 +41,8 @@ http://pythoncharmers.com
 Authors
 -------
 
-Python-Future is written and maintained by Ed Schofield and various contributors:
+Python-Future is written and maintained by Ed Schofield with the help of
+various contributors:
 
 Development Lead
 ~~~~~~~~~~~~~~~~
@@ -56,6 +57,8 @@ Patches
 - Nicolas Delaby
 - Corey Farwell
 - Eric Firing
+- Michael Joseph
+- Waldemar Kornewald
 - Alexey Kotlyarov
 - Lion Krischer
 - Marcin Kuzminski
@@ -66,6 +69,7 @@ Patches
 - Tim Shaffer
 - Daniel Szoska
 - Jeff Tratner
+- Tim Tröndle
 - Brad Walker
 - Mystic-Mirage (GitHub)
 - str4d (GitHub)

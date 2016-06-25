@@ -17,7 +17,15 @@ from future.utils import PY2
 
 
 class TestLibFuturize(unittest.TestCase):
-    @skip26    # mysterious sporadic UnicodeDecodeError raised by lib2to3 ...
+
+    def setUp(self):
+        # For tests that need a text file:
+        _, self.textfilename = tempfile.mkstemp(text=True)
+        super(TestLibFuturize, self).setUp()
+
+    def tearDown(self):
+        os.unlink(self.textfilename)
+
     def test_correct_exit_status(self):
         """
         Issue #119: futurize and pasteurize were not exiting with the correct
@@ -26,8 +34,7 @@ class TestLibFuturize(unittest.TestCase):
         translates into 1!
         """
         from libfuturize.main import main
-        # Try futurizing this test script:
-        retcode = main([__file__])
+        retcode = main([self.textfilename])
         self.assertTrue(isinstance(retcode, int))   # i.e. Py2 builtin int
 
     def test_is_shebang_comment(self):
@@ -82,9 +89,6 @@ class TestFuturizeSimple(CodeHandler):
     tests for whether they can be passed to ``futurize`` and immediately
     run under both Python 2 again and Python 3.
     """
-    def setUp(self):
-        self.tempdir = tempfile.mkdtemp() + os.path.sep
-        super(TestFuturizeSimple, self).setUp()
 
     def test_encoding_comments_kept_at_top(self):
         """
@@ -449,7 +453,6 @@ class TestFuturizeSimple(CodeHandler):
         # -*- coding: utf-8 -*-
         icons = [u"◐", u"◓", u"◑", u"◒"]
         """
-        self.unchanged(code)
 
     def test_exception_syntax(self):
         """
@@ -488,7 +491,7 @@ class TestFuturizeSimple(CodeHandler):
         file() as a synonym for open() is obsolete and invalid on Python 3.
         """
         before = '''
-        f = file(__file__)
+        f = file(self.textfilename)
         data = f.read()
         f.close()
         '''
@@ -851,7 +854,7 @@ class TestFuturizeStage1(CodeHandler):
 
         Issue #16 (with porting bokeh/bbmodel.py)
         """
-        with open(tempdir + 'specialmodels.py', 'w') as f:
+        with open(self.tempdir + 'specialmodels.py', 'w') as f:
             f.write('pass')
 
         before = """
@@ -1141,14 +1144,10 @@ class TestFuturizeStage1(CodeHandler):
         """
         self.convert_check(before, after)
 
-
-class TestConservativeFuturize(CodeHandler):
-    @unittest.expectedFailure
     def test_basestring(self):
         """
-        In conservative mode, futurize would not modify "basestring"
-        but merely import it, and the following code would still run on
-        both Py2 and Py3.
+        The 2to3 basestring fixer breaks working Py2 code that uses basestring.
+        This tests whether something sensible is done instead.
         """
         before = """
         assert isinstance('hello', basestring)
@@ -1161,41 +1160,7 @@ class TestConservativeFuturize(CodeHandler):
         assert isinstance(u'hello', basestring)
         assert isinstance(b'hello', basestring)
         """
-        self.convert_check(before, after, conservative=True)
-
-    @unittest.expectedFailure
-    def test_open(self):
-        """
-        In conservative mode, futurize would not import io.open because
-        this changes the default return type from bytes to text.
-        """
-        before = """
-        filename = 'temp_file_open.test'
-        contents = 'Temporary file contents. Delete me.'
-        with open(filename, 'w') as f:
-            f.write(contents)
-
-        with open(filename, 'r') as f:
-            data = f.read()
-        assert isinstance(data, str)
-        assert data == contents
-        """
-        after = """
-        from past.builtins import open, str as oldbytes, unicode
-        filename = oldbytes(b'temp_file_open.test')
-        contents = oldbytes(b'Temporary file contents. Delete me.')
-        with open(filename, oldbytes(b'w')) as f:
-            f.write(contents)
-
-        with open(filename, oldbytes(b'r')) as f:
-            data = f.read()
-        assert isinstance(data, oldbytes)
-        assert data == contents
-        assert isinstance(oldbytes(b'hello'), basestring)
-        assert isinstance(unicode(u'hello'), basestring)
-        assert isinstance(oldbytes(b'hello'), basestring)
-        """
-        self.convert_check(before, after, conservative=True)
+        self.convert_check(before, after)
 
     def test_safe_division(self):
         """
@@ -1252,6 +1217,80 @@ class TestConservativeFuturize(CodeHandler):
         """
         self.convert_check(before, after)
 
+    def test_basestring_issue_156(self):
+        before = """
+        x = str(3)
+        allowed_types = basestring, int
+        assert isinstance('', allowed_types)
+        assert isinstance(u'', allowed_types)
+        assert isinstance(u'foo', basestring)
+        """
+        after = """
+        from builtins import str
+        from past.builtins import basestring
+        x = str(3)
+        allowed_types = basestring, int
+        assert isinstance('', allowed_types)
+        assert isinstance(u'', allowed_types)
+        assert isinstance(u'foo', basestring)
+        """
+        self.convert_check(before, after)
+
+
+class TestConservativeFuturize(CodeHandler):
+    @unittest.expectedFailure
+    def test_basestring(self):
+        """
+        In conservative mode, futurize would not modify "basestring"
+        but merely import it from ``past``, and the following code would still
+        run on both Py2 and Py3.
+        """
+        before = """
+        assert isinstance('hello', basestring)
+        assert isinstance(u'hello', basestring)
+        assert isinstance(b'hello', basestring)
+        """
+        after = """
+        from past.builtins import basestring
+        assert isinstance('hello', basestring)
+        assert isinstance(u'hello', basestring)
+        assert isinstance(b'hello', basestring)
+        """
+        self.convert_check(before, after, conservative=True)
+
+    @unittest.expectedFailure
+    def test_open(self):
+        """
+        In conservative mode, futurize would not import io.open because
+        this changes the default return type from bytes to text.
+        """
+        before = """
+        filename = 'temp_file_open.test'
+        contents = 'Temporary file contents. Delete me.'
+        with open(filename, 'w') as f:
+            f.write(contents)
+
+        with open(filename, 'r') as f:
+            data = f.read()
+        assert isinstance(data, str)
+        assert data == contents
+        """
+        after = """
+        from past.builtins import open, str as oldbytes, unicode
+        filename = oldbytes(b'temp_file_open.test')
+        contents = oldbytes(b'Temporary file contents. Delete me.')
+        with open(filename, oldbytes(b'w')) as f:
+            f.write(contents)
+
+        with open(filename, oldbytes(b'r')) as f:
+            data = f.read()
+        assert isinstance(data, oldbytes)
+        assert data == contents
+        assert isinstance(oldbytes(b'hello'), basestring)
+        assert isinstance(unicode(u'hello'), basestring)
+        assert isinstance(oldbytes(b'hello'), basestring)
+        """
+        self.convert_check(before, after, conservative=True)
 
 class TestFuturizeAllImports(CodeHandler):
     """
