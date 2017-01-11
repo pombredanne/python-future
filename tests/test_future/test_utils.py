@@ -18,6 +18,11 @@ from future.tests.base import unittest, skip26
 TEST_UNICODE_STR = u'ℝεα∂@ßʟ℮ ☂ℯṧт υηḯ¢☺ḓ℮'
 
 
+class MyExceptionIssue235(Exception):
+    def __init__(self, a, b):
+        super(MyExceptionIssue235, self).__init__('{0}: {1}'.format(a, b))
+
+
 class TestUtils(unittest.TestCase):
     def setUp(self):
         self.s = TEST_UNICODE_STR
@@ -152,6 +157,22 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(isinstance(e.__context__, TypeError))
             self.assertIsNone(e.__cause__)
 
+    def test_issue_235(self):
+        def foo():
+            raise MyExceptionIssue235(3, 7)
+
+        def bar():
+            try:
+                foo()
+            except Exception as err:
+                raise_from(ValueError('blue'), err)
+
+        try:
+            bar()
+        except ValueError as e:
+            pass
+        # incorrectly raises a TypeError on Py3 as of v0.15.2.
+
     @skip26
     def test_as_native_str(self):
         """
@@ -268,7 +289,6 @@ class TestCause(unittest.TestCase):
         else:
             self.fail("No exception raised")
 
-    @expectedFailurePY3
     def test_instance_cause(self):
         cause = KeyError('blah')
         try:
